@@ -7,6 +7,7 @@ namespace Geo
 struct Transform
 {
   // By defolt identity transformation
+  VectorD<3> origin_ = {};
   VectorD<3> delta_ = {};
   VectorD<3> rotation_ = {};
   VectorD<3> operator()(const VectorD<3>& _pos);

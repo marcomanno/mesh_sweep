@@ -19,3 +19,11 @@ add_subdirectory(PolygonTriangularization)
 add_subdirectory(Geo)
 add_subdirectory(Import)
 add_subdirectory(Topology)
+
+option(CATCH_BUILD_TESTING "Build SelfTest project" OFF)
+option(CATCH_ENABLE_WERROR "Enable all warnings as errors" ON)
+set(CATCH_INSTALL_DOCS OFF)
+set(CATCH_INSTALL_HELPERS OFF)
+add_subdirectory(Catch2)
+
+add_subdirectory(TestMe)

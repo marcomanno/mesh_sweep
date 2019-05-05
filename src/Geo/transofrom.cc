@@ -11,10 +11,11 @@ VectorD<3> Transform::operator()(const VectorD<3>& _pos)
   {
     auto ax = rotation_ / len;
     auto alpha = 2 * M_PI * len;
-    auto ax_comp = (_pos * ax) * ax;
-    auto orth_comp = _pos - ax_comp;
+    auto p = _pos - origin_;
+    auto ax_comp = (p * ax) * ax;
+    auto orth_comp = p - ax_comp;
     auto orth_comp_perp = ax % orth_comp;
-    transf_pos = ax_comp + cos(alpha) * orth_comp + sin(alpha) * orth_comp_perp;
+    transf_pos = origin_ + ax_comp + cos(alpha) * orth_comp + sin(alpha) * orth_comp_perp;
   }
   transf_pos += delta_;
   return transf_pos;
