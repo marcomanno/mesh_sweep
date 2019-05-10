@@ -1,16 +1,52 @@
 #pragma once
 #include "range.hh"
+
 #include <memory>
+
+template <class T> struct Pimpl
+{
+  Pimpl();
+  Pimpl(Pimpl&& _oth)
+  {
+    if (_oth.impl_ != impl_)
+    {
+      impl_ = _oth.impl_;
+      _oth.impl_ = nullptr;
+    }
+  }
+  Pimpl(const Pimpl& _oth) = delete;
+  ~Pimpl() { clear(); }
+  Pimpl operator=(Pimpl&& _oth)
+  {
+    if (_oth.impl_ != impl_)
+    {
+      clear();
+      impl_ = _oth.impl_;
+      _oth.impl_ = nullptr;
+    }
+  }
+  Pimpl& operator=(const Pimpl& _oth) = delete;
+  struct Impl;
+  Impl* impl_ = nullptr;
+private:
+  void clear();
+};
+
+#define PIMPL_STRUCT(myclass) struct myclass : public Pimpl<myclass>
+#define PIMPL_STRUCT_IMPL(myclass) template <> struct Pimpl<myclass>::Impl
+#define PIMPL_STRUCT_METHODS(myclass)                      \
+  template <> Pimpl<myclass>::Pimpl() : impl_(new Impl) {} \
+  template <> void Pimpl<myclass>::clear() { delete impl_; }
 
 namespace Geo
 {
-struct Transform
+
+PIMPL_STRUCT(Transform)
 {
-  // By defolt identity transformation
-  VectorD<3> origin_ = {};
-  VectorD<3> delta_ = {};
-  VectorD<3> rotation_ = {};
-  VectorD<3> operator()(const VectorD<3>& _pos);
+  void set_rotation(const VectorD<3> & _axis, double _angle = 0, const VectorD<3> & _origin = {});
+  void set_translation(const VectorD<3> & _delta);
+  VectorD<3> operator()(const VectorD<3> & _pos);
+  Transform interpolate(const Transform & _end, double _par) const;
 };
 
 struct ITrajectory

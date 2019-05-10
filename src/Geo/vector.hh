@@ -114,6 +114,23 @@ ValT length(const std::array<ValT, N>& _a)
   return sqrt(length_square(_a));
 }
 
+template <typename ValT, size_t N>
+ValT normalize(std::array<ValT, N>& _a)
+{
+  auto len_sq = length_square(_a);
+  if (len_sq < 1e-24)
+  {
+    _a = {};
+    return 0;
+  }
+  else
+  {
+    auto len = sqrt(len_sq);
+    _a /= len;
+    return len;
+  }
+}
+
 template <typename ValT, typename ParametrT>
 ValT interpolate(const ValT& _a, const ValT& _b, const ParametrT& _par)
 {

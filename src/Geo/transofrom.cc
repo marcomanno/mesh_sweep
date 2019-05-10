@@ -1,24 +1,82 @@
 #include "transofrom.hh"
 
+#ifdef QUATERNION
+#include <Eigen/Geometry>
+using Quat = Eigen::Quaternion<double>;
+#endif
+
+using namespace Geo;
+
+PIMPL_STRUCT_IMPL(Transform)
+{
+  VectorD<3> origin_ = {};
+  VectorD<3> delta_ = {};
+  VectorD<3> operator()(const VectorD<3> & _pos);
+#ifdef QUATERNION
+  Quat rot_;
+#else
+  VectorD<3> axis_ = {};
+#endif
+};
+
+PIMPL_STRUCT_METHODS(Transform)
+
 namespace Geo
 {
-  
+
+void Transform::set_rotation(const VectorD<3>& _axis, double _angle, const VectorD<3>& _origin)
+{
+  impl_->origin_ = _origin;
+#ifdef QUATERNION
+  Eigen::Vector3d axis{ _axis[0], _axis[1], _axis[2] };
+  impl_->rot_ = Eigen::AngleAxis(_angle, axis);
+  impl_->rot_.normalize();
+#else
+  impl_->axis_ = _axis;
+  normalize(impl_->axis_);
+  impl_->axis_ *= sqrt(_angle);
+#endif
+}
+
+void Transform::set_translation(const VectorD<3>& _delta)
+{
+  impl_->delta_ = _delta;
+}
+
 VectorD<3> Transform::operator()(const VectorD<3>& _pos)
 {
-  auto len = Geo::length(rotation_);
-  VectorD<3> transf_pos = {};
-  if (len > 1e-12)
+  auto p = _pos - impl_->origin_;
+  VectorD<3> rot_v{};
+#ifdef QUATERNION
+  Quat::Vector3 v(p[0], p[1], p[2]);
+  auto w = impl_->rot_._transformVector(v);
+  rot_v = {w[0], w[1], w[2]}
+#else
+  auto axis = impl_->axis_;
+  auto len = normalize(axis);
+  if (len != 0)
   {
-    auto ax = rotation_ / len;
-    auto alpha = 2 * M_PI * len;
-    auto p = _pos - origin_;
-    auto ax_comp = (p * ax) * ax;
-    auto orth_comp = p - ax_comp;
-    auto orth_comp_perp = ax % orth_comp;
-    transf_pos = origin_ + ax_comp + cos(alpha) * orth_comp + sin(alpha) * orth_comp_perp;
+    auto alpha = sq(len);
+    auto z_dir = (p * axis) * axis;
+    auto x_dir = p - z_dir;
+    auto y_dir = axis % x_dir;
+    rot_v = z_dir + x_dir * cos(alpha) + y_dir * sin(alpha);
   }
-  transf_pos += delta_;
-  return transf_pos;
+#endif
+  return impl_->origin_ + impl_->delta_ + rot_v;
+}
+
+Transform Transform::interpolate(const Transform& _end, double _par) const
+{
+  Transform result;
+  result.set_translation(::interpolate(impl_->delta_, _end.impl_->delta_, _par));
+  result.impl_->origin_ = ::interpolate(impl_->origin_, _end.impl_->origin_, _par);
+#ifdef QUATERNION
+  result.impl_->rot_ = impl_->rot_.slerp(_par, _end.impl_->rot_);
+#else
+  result.impl_->axis_ = ::interpolate(impl_->axis_, _end.impl_->axis_, _par);
+#endif
+  return result;
 }
 
 struct Trajectory : public ITrajectory

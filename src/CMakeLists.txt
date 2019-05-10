@@ -12,6 +12,10 @@ endif(MSVC)
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 
+set (BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../volumetric_mesh/INSTALL/BOOST")
+set (Boost_USE_STATIC_LIBS ON)
+find_package(BOOST)
+
 set(BUILD_TESTING OFF)
 add_subdirectory(eigen)
 add_subdirectory(Utils)
