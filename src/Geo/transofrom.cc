@@ -5,13 +5,68 @@
 using Quat = Eigen::Quaternion<double>;
 #endif
 
-using namespace Geo;
+namespace Geo {
 
-PIMPL_STRUCT_IMPL(Transform)
+struct Transform : public ITransform
 {
+  void set_rotation_axis(const VectorD<3>& _axis) override
+  {
+    axis_ = _axis;
+  }
+  const VectorD<3>& get_rotation_axis() const override
+  {
+    return axis_;
+  }
+  void set_rotation_origin(const VectorD<3>& _origin) override
+  {
+    origin_ = _origin;
+  }
+  const VectorD<3>& get_rotation_origin() const override
+  {
+    return origin_;
+  }
+  void set_translation(const VectorD<3>& _delta) override
+  {
+    delta_ = _delta;
+  }
+  const VectorD<3>& get_translation() const
+  {
+    return delta_;
+  };
+  std::unique_ptr<ITransform> clone() const  override
+  {
+    auto res = std::make_unique<Transform>();
+    res->set_rotation_axis(axis_);
+    res->set_rotation_origin(origin_);
+    res->set_translation(delta_);
+    return res;
+  }
+  VectorD<3> operator()(const VectorD<3>& _pos) override
+  {
+    auto p = _pos - origin_;
+    VectorD<3> rot_v{};
+#ifdef QUATERNION
+    Quat::Vector3 v(p[0], p[1], p[2]);
+    auto w = impl_->rot_._transformVector(v);
+    rot_v = { w[0], w[1], w[2] }
+#else
+    auto axis = axis_;
+    auto len = normalize(axis);
+    if (len != 0)
+    {
+      auto alpha = sq(len);
+      auto z_dir = (p * axis) * axis;
+      auto x_dir = p - z_dir;
+      auto y_dir = axis % x_dir;
+      rot_v = z_dir + x_dir * cos(alpha) + y_dir * sin(alpha);
+    }
+#endif
+    return origin_ + delta_ + rot_v;
+  }
+
+private:
   VectorD<3> origin_ = {};
   VectorD<3> delta_ = {};
-  VectorD<3> operator()(const VectorD<3> & _pos);
 #ifdef QUATERNION
   Quat rot_;
 #else
@@ -19,123 +74,66 @@ PIMPL_STRUCT_IMPL(Transform)
 #endif
 };
 
-PIMPL_STRUCT_METHODS(Transform)
-
-namespace Geo
+std::unique_ptr<ITransform> ITransform::make()
 {
-
-void Transform::set_rotation(const VectorD<3>& _axis, double _angle, const VectorD<3>& _origin)
-{
-  impl_->origin_ = _origin;
-#ifdef QUATERNION
-  Eigen::Vector3d axis{ _axis[0], _axis[1], _axis[2] };
-  impl_->rot_ = Eigen::AngleAxis(_angle, axis);
-  impl_->rot_.normalize();
-#else
-  impl_->axis_ = _axis;
-  normalize(impl_->axis_);
-  impl_->axis_ *= sqrt(_angle);
-#endif
+  return std::make_unique<Transform>();
 }
 
-void Transform::set_translation(const VectorD<3>& _delta)
+std::unique_ptr<ITransform> ITransform::interpolate(const ITransform& _start, const ITransform& _end, double _par)
 {
-  impl_->delta_ = _delta;
-}
-
-VectorD<3> Transform::operator()(const VectorD<3>& _pos)
-{
-  auto p = _pos - impl_->origin_;
-  VectorD<3> rot_v{};
-#ifdef QUATERNION
-  Quat::Vector3 v(p[0], p[1], p[2]);
-  auto w = impl_->rot_._transformVector(v);
-  rot_v = {w[0], w[1], w[2]}
-#else
-  auto axis = impl_->axis_;
-  auto len = normalize(axis);
-  if (len != 0)
-  {
-    auto alpha = sq(len);
-    auto z_dir = (p * axis) * axis;
-    auto x_dir = p - z_dir;
-    auto y_dir = axis % x_dir;
-    rot_v = z_dir + x_dir * cos(alpha) + y_dir * sin(alpha);
-  }
-#endif
-  return impl_->origin_ + impl_->delta_ + rot_v;
-}
-
-Transform Transform::interpolate(const Transform& _end, double _par) const
-{
-  Transform result;
-  result.set_translation(::interpolate(impl_->delta_, _end.impl_->delta_, _par));
-  result.impl_->origin_ = ::interpolate(impl_->origin_, _end.impl_->origin_, _par);
-#ifdef QUATERNION
-  result.impl_->rot_ = impl_->rot_.slerp(_par, _end.impl_->rot_);
-#else
-  result.impl_->axis_ = ::interpolate(impl_->axis_, _end.impl_->axis_, _par);
-#endif
+  auto result = std::make_unique<Transform>();
+  result->set_translation(Geo::interpolate(_start.get_translation(), _end.get_translation(), _par));
+  result->set_rotation_axis(Geo::interpolate(_start.get_rotation_axis(), _end.get_rotation_axis(), _par));
+  result->set_rotation_origin(Geo::interpolate(_start.get_rotation_origin(), _end.get_rotation_origin(), _par));
   return result;
 }
+
+VectorD<3> ITransform::rotation_axis(const VectorD<3>& _direction, double angle)
+{
+  if (angle < 1e-12)
+    return { };
+  auto len = length(_direction);
+  if (len < 1e-12)
+    throw "Undefined direction";
+  return sqrt(angle) / len * _direction;
+}
+
 
 struct Trajectory : public ITrajectory
 {
   const Interval<double>& range() override { return range_; }
   Interval<double> range_;
 };
-#if 0
+
 struct TrajectoryLinear : public Trajectory
 {
-  Transform transform(double _par) override
+  std::unique_ptr<ITransform> transform(double _par) override
   {
-    Transform res;
     auto t = (_par - range_[0]) / range_.length();
-    res .delta_ = trnsf_.delta_ * (1 - t) + end_pos_;
-    res.rotation_ = trnsf_.rotation_;
-    return res;
+    return ITransform::interpolate(*start_, *end_, t);
   }
+
   VectorD<3> transform(double _par,
-                       const VectorD<3>& _pos,
-                       const VectorD<3>* _dir = nullptr)
+    const VectorD<3>& _pos,
+    const VectorD<3>* _dir = nullptr) override
   {
     auto trnsf = transform(_par);
-    return trnsf(_pos);
+    return (*trnsf)(_pos);
   }
 
-  Transform trnsf_;
-  VectorD3 end_pos_;
+  std::unique_ptr<ITransform> start_, end_;
+  Interval<double> range_;
 };
 
-std::shared_ptr<ITrajectory>
+std::unique_ptr<ITrajectory>
 ITrajectory::make_linear(const Interval<double>& _interv,
-                         const VectorD<3>& _start, const VectorD<3>& _end,
-                         const VectorD<3>* _rot)
+  const ITransform& _start, const ITransform& _end)
 {
-  auto res = std::make_shared<TrajectoryLinear>();
+  auto res = std::make_unique<TrajectoryLinear>();
   res->range_ = _interv;
-  res->end_pos_ = _end;
-  res->trnsf_.delta_ = _start;
-  if (_rot != nullptr)
-    res->trnsf_.rotation_ = *_rot;
+  res->start_ = _start.clone();
+  res->end_ = _end.clone();
   return res;
 }
-
-struct TrajectoryRotation : public ITrajectory
-{
-  TRAJECTORY_METHODS(, override);
-};
-
-struct TrajectoryInterpolate : public ITrajectory
-{
-  TRAJECTORY_METHODS(, override);
-};
-
-struct TrajectoryCompose : public ITrajectory
-{
-  TRAJECTORY_METHODS(, override);
-};
-
-#endif
 
 } // nemespace Geo
