@@ -34,9 +34,9 @@ struct ITrajectory
   virtual ~ITrajectory() {}
   virtual const Interval<double>& range() = 0;
   virtual std::unique_ptr<ITransform> transform(double _par) = 0;
-  virtual VectorD<3> transform(double _par,
-                               const VectorD<3>& _pos,
-                               const VectorD<3>* _dir = nullptr) = 0;
+  virtual VectorD<3> evaluate(double _par,
+                              const VectorD<3>& _pos,
+                              VectorD<3>* _dir = nullptr) = 0;
 
   static std::unique_ptr<ITrajectory>
     make_linear(const Interval<double>& _interv,

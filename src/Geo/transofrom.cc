@@ -44,7 +44,7 @@ struct Transform : public ITransform
   VectorD<3> operator()(const VectorD<3>& _pos) override
   {
     auto p = _pos - origin_;
-    VectorD<3> rot_v{};
+    VectorD<3> rot_v(p);
 #ifdef QUATERNION
     Quat::Vector3 v(p[0], p[1], p[2]);
     auto w = impl_->rot_._transformVector(v);
@@ -113,12 +113,51 @@ struct TrajectoryLinear : public Trajectory
     return ITransform::interpolate(*start_, *end_, t);
   }
 
-  VectorD<3> transform(double _par,
-    const VectorD<3>& _pos,
-    const VectorD<3>* _dir = nullptr) override
+  VectorD<3> evaluate(double _par, const VectorD<3>& _pos, VectorD<3>* _dir = nullptr) override
   {
     auto trnsf = transform(_par);
-    return (*trnsf)(_pos);
+    auto new_pos = (*trnsf)(_pos);
+    if (_dir != nullptr)
+    {
+      auto p = _pos - trnsf->get_rotation_origin();
+
+      auto& ax = trnsf->get_rotation_axis();
+      auto& or = trnsf->get_rotation_origin();
+      auto& delta = trnsf->get_translation();
+      auto dpar = 1. / range_.length();
+
+      auto dax = end_->get_rotation_axis() - start_->get_rotation_axis();
+      auto ax_len_sq = length_square(ax);
+      auto new_pos2 = trnsf->get_rotation_origin() + trnsf->get_translation();
+      *_dir = end_->get_rotation_origin() - start_->get_rotation_origin();
+      *_dir += end_->get_translation() - start_->get_translation();
+      if (ax_len_sq <= 1e-24)
+        new_pos2 += p;
+      else
+      {
+        auto ax_len = sqrt(ax_len_sq);
+
+        auto alpha = ax_len_sq;
+        auto dalpha = 2. * ax * dax;
+
+        auto ax_n = ax / ax_len;
+        auto dax_n = (dax - ((ax * dax) / ax_len_sq) * ax) / ax_len;
+
+        auto tz = (p * ax_n) * ax_n;
+        auto dtz = (p * dax_n) * ax_n + (p * ax_n) * dax_n;
+
+        auto tx = p - tz;
+        auto dtx = p - dtz;
+
+        auto ty = tx % ax_n;
+        auto dty = dtx % ax_n + tx % dax_n;
+
+        double ca = cos(alpha), sa = sin(alpha);
+        new_pos2 += tz + tx * ca + ty * sa;
+        *_dir += dtz + dtx * ca + dty * sa + dalpha * (ty * ca - tx * sa);
+      }
+    }
+    return new_pos;
   }
 
   std::unique_ptr<ITransform> start_, end_;

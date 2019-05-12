@@ -28,22 +28,27 @@ TEST_CASE("Cube", "[Rotations]")
 
 TEST_CASE("Cube1", "[Rotations]")
 {
-  auto a = Geo::ITransform::make();
-  a->set_rotation_axis(Geo::ITransform::rotation_axis({ 0, 0, 1 }, M_PI / 2));
+  std::unique_ptr<Geo::ITrajectory> traj;
+  {
+    auto a = Geo::ITransform::make();
+    a->set_rotation_axis(Geo::ITransform::rotation_axis({ 0, 0, 1 }, M_PI / 2));
 
-  auto b = Geo::ITransform::make();
-  b->set_rotation_axis(Geo::ITransform::rotation_axis({ 0, 1, 0 }, M_PI / 2));
+    auto b = Geo::ITransform::make();
+    b->set_rotation_axis(Geo::ITransform::rotation_axis({ 0, 1, 0 }, M_PI / 2));
+
+    traj = Geo::ITrajectory::make_linear(Geo::Interval(0., 1.), *a, *b);
+  }
 
   for (double x = 0; x <= 1; x += 0.125)
   {
-    auto trns = Geo::ITransform::interpolate(*a, *b, x);
     auto body = IO::load_obj(INDIR"/cube.obj");
     Topo::Iterator<Topo::Type::BODY, Topo::Type::VERTEX> bv(body);
     for (auto v : bv)
     {
-      Geo::VectorD3 pt;
+      Geo::VectorD3 pt, dir;
       v->geom(pt);
-      v->set_geom((*trns)(pt));
+      auto tr_pos = traj->evaluate(x, pt, &dir);
+      v->set_geom(tr_pos);
     }
     auto flnm = out_file("cube1_");
     flnm += std::to_string(x);
@@ -75,6 +80,40 @@ TEST_CASE("Cube2", "[Rotations]")
     IO::save_obj(flnm.c_str(), body);
   }
 }
+
+TEST_CASE("Cube3", "[Rotations]")
+{
+  std::unique_ptr<Geo::ITrajectory> traj;
+  {
+    auto a = Geo::ITransform::make();
+    a->set_rotation_axis(Geo::ITransform::rotation_axis({ 0, 0, 1 }, 0));
+
+    auto b = Geo::ITransform::make();
+    b->set_rotation_axis(Geo::ITransform::rotation_axis({ 0, 0, 1 }, 3 * M_PI));
+    b->set_translation({0, 0, 100.});
+
+    traj = Geo::ITrajectory::make_linear(Geo::Interval(0., 1.), *a, *b);
+  }
+
+  const int N = 128;
+  for (double x = 0; x <= 1; x += 1. / N)
+  {
+    auto body = IO::load_obj(INDIR"/cube.obj");
+    Topo::Iterator<Topo::Type::BODY, Topo::Type::VERTEX> bv(body);
+    for (auto v : bv)
+    {
+      Geo::VectorD3 pt, dir;
+      v->geom(pt);
+      auto tr_pos = traj->evaluate(x, pt, &dir);
+      v->set_geom(tr_pos);
+    }
+    auto flnm = out_file("cube3_");
+    flnm += std::to_string(x);
+    flnm += ".obj";
+    IO::save_obj(flnm.c_str(), body);
+  }
+}
+
 
 static std::string out_file(const char* _flnm)
 {
