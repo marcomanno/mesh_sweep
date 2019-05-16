@@ -31,6 +31,14 @@ Transform& Transform::operator*=(double _coeff)
   return *this;
 }
 
+Transform& Transform::operator/=(double _coeff)
+{
+  origin_ /= _coeff;
+  delta_ /= _coeff;
+  axis_ /= _coeff;
+  return *this;
+}
+
 VectorD<3> Transform::operator()(const VectorD<3>& _pos)
 {
   auto p = _pos - origin_;
@@ -48,8 +56,11 @@ VectorD<3> Transform::operator()(const VectorD<3>& _pos)
   return origin_ + delta_ + rot_v;
 }
 
-Transform Transform::interpolate(const Transform& _start, const Transform& _end, double _par)
+Transform Transform::interpolate(
+  const Transform& _start, const Transform& _end, double _par, Transform* _d_trnsf)
 {
+  if (_d_trnsf != nullptr)
+    * _d_trnsf = _end - _start;
   return Geo::interpolate(_start, _end, _par);
 }
 
@@ -72,34 +83,30 @@ struct Trajectory : public ITrajectory
 
 struct TrajectoryLinear : public Trajectory
 {
-  Transform transform(double _par) override
+  Transform transform(double _par, Transform* _d_transf = nullptr) override
   {
     auto t = (_par - range_[0]) / range_.length();
-    return Transform::interpolate(start_, end_, t);
+    auto result = Transform::interpolate(start_, end_, t, _d_transf);
+    if (_d_transf != nullptr)
+      * _d_transf /= range_.length();
+    return result;
   }
 
   VectorD<3> evaluate(double _par, const VectorD<3>& _pos, VectorD<3>* _dir = nullptr) override
   {
-    auto trnsf = transform(_par);
+    Transform d_transf;
+    auto trnsf = transform(_par, &d_transf);
     auto new_pos = trnsf(_pos);
     if (_dir != nullptr)
     {
-      auto p = _pos - trnsf.get_rotation_origin();
+      *_dir = d_transf.get_rotation_origin() + d_transf.get_translation();
 
       auto& ax = trnsf.get_rotation_axis();
-      auto& or = trnsf.get_rotation_origin();
-      auto& delta = trnsf.get_translation();
-      auto dpar = 1. / range_.length();
-
-      auto dax = end_.get_rotation_axis() - start_.get_rotation_axis();
       auto ax_len_sq = length_square(ax);
-      auto new_pos2 = trnsf.get_rotation_origin() + trnsf.get_translation();
-      *_dir = end_.get_rotation_origin() - start_.get_rotation_origin();
-      *_dir += end_.get_translation() - start_.get_translation();
-      if (ax_len_sq <= 1e-24)
-        new_pos2 += p;
-      else
+      if (ax_len_sq > 1e-24)
       {
+        auto p = _pos - trnsf.get_rotation_origin();
+        auto& dax = d_transf.get_rotation_axis();
         auto ax_len = sqrt(ax_len_sq);
 
         auto alpha = ax_len_sq;
@@ -118,7 +125,6 @@ struct TrajectoryLinear : public Trajectory
         auto dty = dtx % ax_n + tx % dax_n;
 
         double ca = cos(alpha), sa = sin(alpha);
-        new_pos2 += tz + tx * ca + ty * sa;
         *_dir += dtz + dtx * ca + dty * sa + dalpha * (ty * ca - tx * sa);
       }
     }

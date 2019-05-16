@@ -20,7 +20,8 @@ struct Transform
 
   VectorD<3> operator()(const VectorD<3> & _pos);
 
-  static Transform interpolate(const Transform& _start, const Transform& _end, double _par);
+  static Transform interpolate(const Transform& _start, 
+    const Transform& _end, double _par, Transform* _d_trnsf = nullptr);
   static VectorD<3> rotation_axis(const VectorD<3>& _direction, double angle);
 
   Transform& operator+=(const Transform& _oth);
@@ -29,6 +30,8 @@ struct Transform
   Transform operator-(const Transform& _oth) const { return (Transform(*this) -= _oth); }
   Transform& operator*=(double _coeff);
   Transform operator*(double _coeff) const { return (Transform(*this) *= _coeff); }
+  Transform& operator/=(double _coeff);
+  Transform operator/(double _coeff) const { return (Transform(*this) /= _coeff); }
 
 private:
   VectorD<3> origin_ = {};
@@ -40,7 +43,7 @@ struct ITrajectory
 {
   virtual ~ITrajectory() {}
   virtual const Interval<double>& range() = 0;
-  virtual Transform transform(double _par) = 0;
+  virtual Transform transform(double _par, Transform* _d_transf = nullptr) = 0;
   virtual VectorD<3> evaluate(double _par,
                               const VectorD<3>& _pos,
                               VectorD<3>* _dir = nullptr) = 0;
