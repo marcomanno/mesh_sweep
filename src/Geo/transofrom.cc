@@ -47,7 +47,7 @@ VectorD<3> Transform::operator()(const VectorD<3>& _pos)
   auto len = normalize(axis);
   if (len != 0)
   {
-    auto alpha = sq(len);
+    auto alpha = len;
     auto z_dir = (p * axis) * axis;
     auto x_dir = p - z_dir;
     auto y_dir = axis % x_dir;
@@ -103,29 +103,38 @@ struct TrajectoryLinear : public Trajectory
 
       auto& ax = trnsf.get_rotation_axis();
       auto ax_len_sq = length_square(ax);
+      auto& dax = d_transf.get_rotation_axis();
+      auto p = _pos - trnsf.get_rotation_origin();
+      auto ax_len = sqrt(ax_len_sq);
+      auto alpha = ax_len;
+      double ca = cos(alpha), sa = sin(alpha);
       if (ax_len_sq > 1e-24)
       {
-        auto p = _pos - trnsf.get_rotation_origin();
-        auto& dax = d_transf.get_rotation_axis();
-        auto ax_len = sqrt(ax_len_sq);
-
-        auto alpha = ax_len_sq;
-        auto dalpha = 2. * ax * dax;
+        auto dalpha = - (ax * dax) / ax_len;
 
         auto ax_n = ax / ax_len;
-        auto dax_n = (dax - ((ax * dax) / ax_len_sq) * ax) / ax_len;
+        auto dax_n = (dax - ax * ((ax * dax) / ax_len_sq)) / ax_len;
 
         auto tz = (p * ax_n) * ax_n;
         auto dtz = (p * dax_n) * ax_n + (p * ax_n) * dax_n;
 
         auto tx = p - tz;
-        auto dtx = p - dtz;
+        auto dtx = dtz;
 
         auto ty = tx % ax_n;
         auto dty = dtx % ax_n + tx % dax_n;
 
-        double ca = cos(alpha), sa = sin(alpha);
         *_dir += dtz + dtx * ca + dty * sa + dalpha * (ty * ca - tx * sa);
+      }
+      else
+      {
+        auto da_lensq = Geo::length_square(dax);
+        auto da_len = sqrt(da_lensq);
+        auto dalpha = da_len;
+        auto tz = ((p * dax) / da_lensq) * dax;
+        auto tx = p - tz;
+        auto ty = (dax % tx) / da_len;
+        *_dir += (ty * ca - tx * sa) * dalpha;
       }
     }
     return new_pos;
