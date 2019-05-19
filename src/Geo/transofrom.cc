@@ -110,7 +110,7 @@ struct TrajectoryLinear : public Trajectory
       double ca = cos(alpha), sa = sin(alpha);
       if (ax_len_sq > 1e-24)
       {
-        auto dalpha = - (ax * dax) / ax_len;
+        auto dalpha = (ax * dax) / ax_len;
 
         auto ax_n = ax / ax_len;
         auto dax_n = (dax - ax * ((ax * dax) / ax_len_sq)) / ax_len;
@@ -119,10 +119,10 @@ struct TrajectoryLinear : public Trajectory
         auto dtz = (p * dax_n) * ax_n + (p * ax_n) * dax_n;
 
         auto tx = p - tz;
-        auto dtx = dtz;
+        auto dtx = -dtz;
 
-        auto ty = tx % ax_n;
-        auto dty = dtx % ax_n + tx % dax_n;
+        auto ty = ax_n % tx;
+        auto dty = ax_n % dtx + dax_n % tx;
 
         *_dir += dtz + dtx * ca + dty * sa + dalpha * (ty * ca - tx * sa);
       }

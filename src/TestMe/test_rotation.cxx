@@ -105,6 +105,11 @@ TEST_CASE("Cube3", "[Rotations]")
       Geo::VectorD3 pt, dir;
       v->geom(pt);
       auto tr_pos = traj->evaluate(x, pt, &dir);
+      auto h = 0.0001;
+      auto tr_pos_plus = traj->evaluate(x + h, pt);
+      auto tr_pos_minus = traj->evaluate(x - h, pt);
+      auto dir_appr = (tr_pos_plus - tr_pos_minus) / (2 * h);
+      CHECK(Geo::length(dir - dir_appr) < 1e-5);
       v->set_geom(tr_pos);
     }
     auto flnm = out_file("cube3_");
