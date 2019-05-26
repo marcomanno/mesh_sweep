@@ -17,6 +17,7 @@ set (Boost_USE_STATIC_LIBS ON)
 find_package(BOOST)
 
 set(BUILD_TESTING OFF)
+set(EIGEN_BUILD_BTL OFF)
 add_subdirectory(eigen)
 add_subdirectory(Utils)
 add_subdirectory(PolygonTriangularization)

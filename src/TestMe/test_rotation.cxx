@@ -1,4 +1,6 @@
 
+#include "utils.hxx"
+
 #include "catch2/catch.hpp"
 
 #include "Geo/transofrom.hh"
@@ -8,8 +10,6 @@
 
 
 #include <filesystem>
-
-static std::string out_file(const char* _flnm);
 
 TEST_CASE("Cube", "[Rotations]")
 {
@@ -117,13 +117,4 @@ TEST_CASE("Cube3", "[Rotations]")
     flnm += ".obj";
     IO::save_obj(flnm.c_str(), body);
   }
-}
-
-
-static std::string out_file(const char* _flnm)
-{
-  namespace fs = std::filesystem;
-  if (!fs::is_directory(OUTDIR) || !fs::exists(OUTDIR))
-    fs::create_directory(OUTDIR); // create _dir folder
-  return std::string(OUTDIR"/") + _flnm;
 }
