@@ -77,13 +77,13 @@ VectorD<3> Transform::rotation_axis(const VectorD<3>& _direction, double angle)
 
 struct Trajectory : public ITrajectory
 {
-  const Interval<double>& range() override { return range_; }
+  const Interval<double>& range() const override { return range_; }
   Interval<double> range_;
 };
 
 struct TrajectoryLinear : public Trajectory
 {
-  Transform transform(double _par, Transform* _d_transf = nullptr) override
+  Transform transform(double _par, Transform* _d_transf = nullptr) const override
   {
     auto t = (_par - range_[0]) / range_.length();
     auto result = Transform::interpolate(start_, end_, t, _d_transf);
@@ -92,7 +92,7 @@ struct TrajectoryLinear : public Trajectory
     return result;
   }
 
-  VectorD<3> evaluate(double _par, const VectorD<3>& _pos, VectorD<3>* _dir = nullptr) override
+  VectorD<3> evaluate(double _par, const VectorD<3>& _pos, VectorD<3>* _dir = nullptr) const override
   {
     Transform d_transf;
     auto trnsf = transform(_par, &d_transf);

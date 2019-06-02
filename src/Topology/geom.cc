@@ -14,10 +14,7 @@ Geo::VectorD3 face_normal(Topo::Wrap<Topo::Type::FACE> _face)
   Iterator<Type::LOOP, Type::VERTEX> lv_it(*fl_it.begin());
   std::vector<Geo::Point> verts;
   for (auto vert : lv_it)
-  {
-    verts.emplace_back();
-    vert->geom(verts.back());
-  }
+    vert->geom(verts.emplace_back());
   auto poly_face = Geo::IPolygonalFace::make();
   poly_face->add_loop(verts.begin(), verts.end());
   poly_face->compute();

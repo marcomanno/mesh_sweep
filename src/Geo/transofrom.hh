@@ -42,11 +42,11 @@ private:
 struct ITrajectory
 {
   virtual ~ITrajectory() {}
-  virtual const Interval<double>& range() = 0;
-  virtual Transform transform(double _par, Transform* _d_transf = nullptr) = 0;
+  virtual const Interval<double>& range() const = 0;
+  virtual Transform transform(double _par, Transform* _d_transf = nullptr) const = 0;
   virtual VectorD<3> evaluate(double _par,
                               const VectorD<3>& _pos,
-                              VectorD<3>* _dir = nullptr) = 0;
+                              VectorD<3>* _dir = nullptr) const = 0;
 
   static std::unique_ptr<ITrajectory>
     make_linear(const Interval<double>& _interv,
