@@ -3,6 +3,7 @@
 
 #include "utils.hxx"
 
+#include "Boolean/boolean.hh"
 #include "Geo/transofrom.hh"
 #include "Import/load_obj.hh"
 #include "Import/save_obj.hh"
@@ -44,7 +45,7 @@ static Topo::Wrap<Topo::Type::BODY> clone_body(const Topo::Wrap<Topo::Type::BODY
 static Topo::Wrap<Topo::Type::BODY> transform_and_purge(
   Topo::Wrap<Topo::Type::BODY> _body,
   const Geo::ITrajectory& _traj, double _par,
-  int _plus_minus = 0)
+  int _plus_minus_granted = 0)
 {
   auto body = clone_body(_body);
   std::set<Topo::Wrap<Topo::Type::FACE>> faces;
@@ -55,17 +56,21 @@ static Topo::Wrap<Topo::Type::BODY> transform_and_purge(
     Geo::VectorD3 pos;
     v->geom(pos);
     v->set_geom(_traj.evaluate(_par, pos, &dirs.emplace_back()));
+    Geo::normalize(dirs.back());
   }
   auto dir_it = dirs.begin();
+  std::map<Topo::Wrap<Topo::Type::VERTEX>, int> vertex_class;
   for (auto v : bv)
   {
-    auto normals = Topo::vertex_normals(v);
-    int plus_minus = _plus_minus;
-    const double eps = 1e-10;
     const auto& dir = *dir_it++;
+    auto normals = Topo::vertex_normals(v);
+    if (normals.empty())
+      continue;
+    int plus_minus = _plus_minus_granted;
+    const double eps = 1e-1;
     for (auto& norm : normals)
     {
-      auto dot = norm * dir / Geo::length(dir);
+      auto dot = norm * dir;
       if (dot > eps)
         plus_minus |= 1;
       else if (dot < -eps)
@@ -73,16 +78,16 @@ static Topo::Wrap<Topo::Type::BODY> transform_and_purge(
       else
         plus_minus = 3;
     }
-    if (plus_minus != 3)
-      continue;
-    Topo::Iterator<Topo::Type::VERTEX, Topo::Type::FACE> vf(v);
-    for (auto f : vf)
-      faces.insert(f);
+    vertex_class[v] = plus_minus;
   }
   Topo::Iterator<Topo::Type::BODY, Topo::Type::FACE> bf(body);
   for (auto f : bf)
   {
-    if (faces.find(f) == faces.end())
+    Topo::Iterator<Topo::Type::FACE, Topo::Type::VERTEX> fv(f);
+    int plus_minus = _plus_minus_granted;
+    for (auto v : fv)
+      plus_minus |= vertex_class[v];
+    if (plus_minus != 3)
       f->remove();
   }
   return body;
@@ -135,14 +140,36 @@ TEST_CASE("vnormals_001", "[Vertex_normal]")
     traj = Geo::ITrajectory::make_linear(Geo::Interval(0., 1.), a, b);
   }
   auto body = IO::load_obj(INDIR"/torus.obj");
+  Topo::Wrap<Topo::Type::BODY>  result = transform_and_purge(body, *traj, 0, 1);
   auto compute = [&](double _par, int _portion)
   {
-    IO::save_obj(out_file("torus_tr.obj").c_str(),
-      transform_and_purge(body, *traj, _par, _portion));
+    auto bool_op = Boolean::ISolver::make();
+    bool_op->init(result, transform_and_purge(body, *traj, _par, _portion));
+    result = bool_op->compute(Boolean::Operation::UNION);
+    IO::save_obj(out_file("result_bool_001.obj").c_str(), result);
   };
-  compute(1., 2);
-  compute(0, 1);
-  const double step = 1. / 128;
+  const double step = 1. / 32;
   for (double t = step; t < 1; t += step)
     compute(t, 0);
+  compute(1., 2);
+  IO::save_obj(out_file("result_vnormals_001.obj").c_str(), result);
+}
+
+TEST_CASE("vnormals_002", "[Vertex_normal]")
+{
+  std::unique_ptr<Geo::ITrajectory> traj;
+  {
+    Geo::Transform a;
+    a.set_rotation_axis(Geo::Transform::rotation_axis({ 0, 0, 1 }, 0));
+
+    Geo::Transform b;
+    b.set_rotation_axis(Geo::Transform::rotation_axis({ 0, 0, 1 }, 3 * M_PI));
+    b.set_translation({ 0, 0, 100. });
+
+    traj = Geo::ITrajectory::make_linear(Geo::Interval(0., 1.), a, b);
+  }
+  //auto body = IO::load_obj(INDIR"/18_faces.obj");
+  auto body = IO::load_obj(INDIR"/torus.obj");
+  Topo::Wrap<Topo::Type::BODY>  result = transform_and_purge(body, *traj, 0, 0);
+  IO::save_obj(out_file("result_vnormals_002.obj").c_str(), result);
 }

@@ -10,11 +10,18 @@ namespace Topo {
 Geo::VectorD3 face_normal(Topo::Wrap<Topo::Type::FACE> _face)
 {
   Iterator<Type::FACE, Type::LOOP> fl_it(_face);
-  THROW_IF(fl_it.size() == 0, "Normal ofnot defined face");
+  THROW_IF(fl_it.size() == 0, "Normal of not defined face");
   Iterator<Type::LOOP, Type::VERTEX> lv_it(*fl_it.begin());
   std::vector<Geo::Point> verts;
   for (auto vert : lv_it)
     vert->geom(verts.emplace_back());
+  if (verts.size() == 3)
+  {
+    auto norm = (verts[1] - verts[0]) % (verts[2] - verts[0]);
+    Geo::normalize(norm);
+    return norm;
+  }
+
   auto poly_face = Geo::IPolygonalFace::make();
   poly_face->add_loop(verts.begin(), verts.end());
   poly_face->compute();
@@ -58,8 +65,10 @@ std::vector<Geo::VectorD3> vertex_normals(Wrap<Type::VERTEX> _vert)
   for (auto ed : ve_it)
   {
     Iterator<Type::EDGE, Type::FACE> ef_it(ed);
-    THROW_IF(ef_it.size() != 2, "Expected 2 manifold mesh.");
-    v_loop.push_back({ ed, ef_it.get(0), ef_it.get(1) });
+    if (ef_it.size() == 2)
+      v_loop.push_back({ ed, ef_it.get(0), ef_it.get(1) });
+    else
+      return {};
   }
   for (size_t i = 0; i < v_loop.size(); ++i)
   {
@@ -80,7 +89,10 @@ std::vector<Geo::VectorD3> vertex_normals(Wrap<Type::VERTEX> _vert)
   THROW_IF(v_loop.front().f0_ != v_loop.back().f1_, "Expected cycle.");
   std::vector<Geo::VectorD3> normals;
   for (auto& vert_loop : v_loop)
-    normals.push_back(face_normal(vert_loop.f1_));
+  {
+    if (vert_loop.f1_.get())
+      normals.push_back(face_normal(vert_loop.f1_));
+  }
   return normals;
 }
 

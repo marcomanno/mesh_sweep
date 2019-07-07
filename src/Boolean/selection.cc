@@ -207,6 +207,7 @@ void Selection::select_faces(
     std::inserter(common_edges_, common_edges_.end()));
 
 
+#if 0
   static int nnnn = 0;
   auto saver = IO::ISaver::make();
 
@@ -216,7 +217,6 @@ void Selection::select_faces(
     saver->add_edge(edge);
   saver->compute((std::string("deb_cmm_verts_") + std::to_string(nnnn++) + ".obj").c_str());
 
-#if 0
   std::ofstream deb_cmm_verts(std::string("deb_cmm_verts_") + std::to_string(nnnn++) + ".obj");
   for (auto& edge : common_edges_)
   {

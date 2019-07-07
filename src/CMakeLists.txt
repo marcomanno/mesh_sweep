@@ -1,7 +1,9 @@
 # CMakeList.txt : Top-level CMake project file, do global configuration
 # and include sub-projects here.
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.13)
+cmake_policy(VERSION 3.13)
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
 
 project(mesh_sweep)
 
@@ -12,9 +14,7 @@ endif(MSVC)
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 
-set (BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../volumetric_mesh/INSTALL/BOOST")
-set (Boost_USE_STATIC_LIBS ON)
-find_package(BOOST)
+add_subdirectory(ThirdParty)
 
 option(CATCH_BUILD_TESTING "Build SelfTest project" OFF)
 option(CATCH_ENABLE_WERROR "Enable all warnings as errors" ON)
