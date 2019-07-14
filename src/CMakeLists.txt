@@ -24,6 +24,7 @@ add_subdirectory(Catch2)
 
 set(BUILD_TESTING OFF)
 set(EIGEN_BUILD_BTL OFF)
+set(EIGEN_SPLIT_LARGE_TESTS)
 add_subdirectory(eigen)
 
 add_subdirectory(Utils)
@@ -32,5 +33,6 @@ add_subdirectory(Geo)
 add_subdirectory(Import)
 add_subdirectory(Topology)
 add_subdirectory(Boolean)
+add_subdirectory(Levelset)
 
 add_subdirectory(TestMe)
